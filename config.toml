@@ -1,0 +1,11 @@
+[htv]
+# login credentials
+
+email="nowayhosey@gg.gg"
+password="skrtskrt"
+
+[etc]
+# other things
+
+webhook_notification=false
+webhook_url="url"
