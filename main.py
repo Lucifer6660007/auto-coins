@@ -41,84 +41,84 @@ def webhook(rewarded: int, coins: int, username: str): # Webhook sender
     })
 
 def makeXheaders(): # Make X- headers
-    _t = t()
+    time = t()
     return {
         "X-Signature-Version": "app2",
-        "X-Claim"            : _t,
-        "X-Signature"        : sha256(f"9944822{_t}8{_t}113")
+        "X-Claim"            : time,
+        "X-Signature"        : sha256(f"9944822{time}8{time}113")
     }
 
 def login(session: httpx.Client, email: str, password: str): # Log into hanime.tv
     session.headers.update(makeXheaders())
-    _r = session.post(host+"/rapi/v4/sessions", json={
+    request = session.post(host+"/rapi/v4/sessions", json={
         "burger": email,
         "fries" : password
     })
-    if _r.status_code == 200:
-        _r = _r.json()
-        _u = _r['user']
-        _v = _r['env']['mobile_apps']
-        for _ in ['_build_number', 'osts_build_number', 'severilous_build_number']:
-            if _ in _v.keys():
-                _v = _v[_]
+    if request.status_code == 200:
+        response = request.json()
+        user = response['user']
+        version = response['env']['mobile_apps']
+        for i in ['_build_number', 'osts_build_number', 'severilous_build_number']:
+            if i in version.keys():
+                version = version[i]
                 break
-        if type(_v) != int:
+        if type(version) != int:
             raise exit("[!] Couldn't get build number! Open an issue on github!")
     else:
-        raise exit(f"[-] Login failed! Recheck your credentials and/or try again. | Status code: {_r.status_code} | Response: {_r.text}")
-    if _u['last_rewarded_ad_clicked_at'] != None:
-        _l  = int(tstounix(_u['last_rewarded_ad_clicked_at']))
+        raise exit(f"[-] Login failed! Recheck your credentials and/or try again. | Status code: {request.status_code} | Response: {request.text}")
+    if user['last_rewarded_ad_clicked_at'] != None:
+        last_claimed  = int(tstounix(user['last_rewarded_ad_clicked_at']))
     else:
-        _l  = None
+        last_claimed  = None
     return {
-        "session_token": _r['session_token'],
-        "uid"          : _u['id'],
-        "build_number" : _v,
-        "username"     : f"{_u['name']}#{_u['number']}",
-        "coins"        : _u['coins'],
-        "last_claimed" : _l
+        "session_token": response['session_token'],
+        "uid"          : user['id'],
+        "build_number" : version,
+        "username"     : f"{user['name']}#{user['number']}",
+        "coins"        : user['coins'],
+        "last_claimed" : last_claimed
     }
 
 def claim_coins(session: httpx.Client, uid: int, build_number: int):
     session.headers.update(makeXheaders())
-    _t = t()
-    _r = session.post(host+"/rapi/v4/coins", data={
-        "reward_token": sha256("coins%d|%d|%s|coins%d" % (build_number, uid, _t, build_number)) + "|" + _t,
+    time = t()
+    request = session.post(host+"/rapi/v4/coins", data={
+        "reward_token": sha256("coins%d|%d|%s|coins%d" % (build_number, uid, time, build_number)) + "|" + time,
         "version"     : str(build_number)
     })
-    if _r.status_code == 200:
-        _r = _r.json()
-        return True, _r['rewarded_amount'], tstounix(_r['user']['last_rewarded_ad_clicked_at'])
+    if request.status_code == 200:
+        response = response.json()
+        return True, response['rewarded_amount'], tstounix(response['user']['last_rewarded_ad_clicked_at'])
     else:
-        return False, _r.text, None
+        return False, request.text, None
 
 def main():
     cls()
-    _s = httpx.Client()
+    session = httpx.Client()
     print("[@] Attempting login...")
-    _l = login(_s, email, password)
-    _s.headers.update({
-        "X-Session-Token": _l["session_token"]
+    login = login(session, email, password)
+    session.headers.update({
+        "X-Session-Token": login["session_token"]
     })
     print(f"[+] Login success! Welcome {_l['username']}")
     while True:
-        th = ((60 * 60) * 3)
-        cr = int(time.time())
-        nx = (_l['last_claimed'] + th)
-        if _l['last_claimed'] is not None:
-            if cr >= nx+1:
-                _c = claim_coins(_s, _l['uid'], _l['build_number'])
-                if _c[0] == True:
-                    print(f"\n[+] Claimed {_c[1]} coins!")
-                    _l['coins'] = _l['coins'] + _c[1]
-                    _l['last_claimed'] = _c[2]
+        cooldown = ((60 * 60) * 3)
+        current_time = int(time.time())
+        next_claim = (login['last_claimed'] + cooldown)
+        if login['last_claimed'] is not None:
+            if current_time >= next_claim+1:
+                claim = claim_coins(session, login['uid'], login['build_number'])
+                if claim[0] == True:
+                    print(f"\n[+] Claimed {claim[1]} coins!")
+                    login['coins'] = login['coins'] + claim[1]
+                    login['last_claimed'] = _c[2]
                     if webhook_noti == True:
-                        webhook(_c[1], _l['coins'], _l['username'])
+                        webhook(claim[1], login['coins'], login['username'])
                 else:
                     print("[!] Claim failed! | Response: "+_c[1]+" | Trying again in ~5 minutes...")
                     time.sleep(60 * 5)
             else:
-                sys.stdout.write(f"\r[-] Can claim in {unixtohms(nx-cr)}")
+                sys.stdout.write(f"\r[-] Can claim in {unixtohms(next_claim-current_time)}")
                 sys.stdout.flush()
                 time.sleep(1)
         else:
