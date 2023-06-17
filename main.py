@@ -111,11 +111,11 @@ def main():
                 if claim[0] == True:
                     print(f"\n[+] Claimed {claim[1]} coins!")
                     login['coins'] = login['coins'] + claim[1]
-                    login['last_claimed'] = _c[2]
+                    login['last_claimed'] = claim[2]
                     if webhook_noti == True:
                         webhook(claim[1], login['coins'], login['username'])
                 else:
-                    print("[!] Claim failed! | Response: "+_c[1]+" | Trying again in ~5 minutes...")
+                    print("[!] Claim failed! | Response: "+claim[1]+" | Trying again in ~5 minutes...")
                     time.sleep(60 * 5)
             else:
                 sys.stdout.write(f"\r[-] Can claim in {unixtohms(next_claim-current_time)}")
